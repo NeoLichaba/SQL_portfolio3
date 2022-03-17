@@ -1,5 +1,7 @@
 -- Database: dating_database
 
+-- Database: dating_database
+
 DROP TABLE my_contacts;
 
 CREATE TABLE my_contacts (
@@ -10,11 +12,11 @@ CREATE TABLE my_contacts (
 	email varchar (100) NOT NULL,
 	gender varchar (50) NOT NULL,
 	birthday date NOT NULL,
-	prof_id INT, --REFERENCES profession (prof_id)
-	zip_code varchar (4), --REFERENCES zip_code (postal_code),
-	status_id bigserial, --REFERENCES status (status_id),
-	interest_id INT,
-	seeking_id INT
+	prof_id INT REFERENCES profession (prof_id) NOT NULL,
+	zip_code varchar (4) REFERENCES zip_code (postal_code) NOT NULL,
+	status_id bigserial REFERENCES status (status_id),
+	interest_id INT NOT NULL,
+	seeking_id INT NOT NULL
 );	
 
 INSERT INTO my_contacts (last_name, first_name, phone, email, gender, birthday,prof_id,zip_code,status_id,interest_id,seeking_id)
@@ -164,7 +166,7 @@ SELECT * FROM seeking;
    
 SELECT 	my_contacts.contact_id, my_contacts.last_name, my_contacts.first_name, 
 	my_contacts.phone, my_contacts.email,my_contacts.gender, my_contacts.birthday,
-	my_contacts.prof_id,my_contacts.zip_code, my_contacts.status_id, profession.prof_id,profession.profession,zip_code.postal_code,zip_code.city,
+	my_contacts.prof_id,my_contacts.zip_code, my_contacts.status_id, my_contacts.interest_id, my_contacts.seeking_id, profession.prof_id,profession.profession,zip_code.postal_code,zip_code.city,
     zip_code.province,status.status,interest.interest,seeking.seeking
 FROM my_contacts
 LEFT JOIN profession
@@ -176,7 +178,7 @@ ON my_contacts.status_id=status.status_id
 LEFT JOIN interest
 ON my_contacts.interest_id=interest.interest_id
 LEFT JOIN seeking
-ON my_contacts.seeking_id=seeking.seeking_id
+ON my_contacts.seeking_id=seeking.seeking_id;
 
 
 
