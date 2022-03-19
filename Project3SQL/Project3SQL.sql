@@ -175,37 +175,63 @@ ________________________________________________________________________________
 
 --Question 1
 -- 1. Find Duplicate Rows in a PostgreSQL Table
+-- The my_contacts table, comparing status_id, will be used in order to illustrate duplicate rows in this query
+
 
 SELECT status_id, COUNT(status_id)
 FROM my_contacts
 GROUP BY status_id
-HAVING COUNT(status_id)> 1
+HAVING COUNT(status_id)> 1 -- used to identify matching values 
 ORDER BY status_id;
 
---Values returned:
--- status_id - 1, 2, 3, 4
---count - 3, 5, 2, 3
+--Output:
+-- status_id - 1 (appears thrice), 2 (appears 5 times), 3 (appears twice), 4 (appears thrice)
+
 __________________________________________________________________________________
 
 -- ODBC and JDBC Support
 
 --Question 2
 -- 2. Delete Duplicate Rows Query in a PostgreSQL Table
+-- my_contacts table will be used in order to demonstrate this query. 
+-- Currently there are no duplicate values but we will later insert a duplicate row
+-- First run the my_contacts table to ascertain the number of rows.
 
 SELECT * FROM my_contacts;
+-- 15 rows exist.
 
-SELECT contact_id, first_name, last_name, email, 
-ROW_NUMBER() OVER
-	(PARTITION BY
-	 	first_name, last_name, email
-	 ORDER BY 
-	 	first_name, last_name, email
-	) row_num
+-- Update my_contacts table, inserting duplicate values
+
+INSERT INTO my_contacts (last_name, first_name, phone, email, gender, birthday,prof_id,zip_code,status_id,interest_id,seeking_id)
+VALUES ('Green', 'Audrey', '0820116713','pellentesque.tincidunt.tempus@outlook.co.uk', 'female', '1988-05-18','5','2531','5','5','4'),
+       ('Moore', 'Garth','0827311743','et@google.net', 'male', '2000-12-28','5','5201','1','3','4'),
+       ('Harrison', 'Paul','0848853294','velit@icloud.com', 'male', '2002-01-30','6', '8000','2','3','4');		
+
+-- Run the query to check whether the additional rows have been added using SELECT * FROM my_contacts command;
+
+SELECT * FROM my_contacts;
+-- 18 rows now exist
+
+-- Run duplicate query in order to determine which rows have been duplicated. 
+-- Query will return result and order the results alphabetically by last_name.
+-- Green,Harrison and Moore with a count of 2, reveal duplicates.
+
+SELECT last_name, first_name, email, COUNT(*) AS QTY -- the number of duplicates will be returned
 FROM my_contacts
-DELETE FROM cte
+GROUP BY last_name, first_name, email
+HAVING COUNT(*)> 1
+ORDER BY last_name;
+
+WITH cte_duplicates AS
+	(SELECT last_name, first_name, email,	
+	ROW_NUMBER() OVER (PARTITION BY 
+					  last_name, first_name, email
+	ORDER BY last_name, first_name, email) row_num
+FROM my_contacts)
+DELETE FROM cte_duplicates
 WHERE row_num>1;
 
-
+-- Run query again and we are back to having 15 rows of data.
 SELECT * FROM my_contacts;
 
 ______________________________________________________________________________
@@ -459,6 +485,11 @@ FROM my_contacts e
 FULL OUTER JOIN profession d ON d.prof_id = e.prof_id
 WHERE e.first_name IS NULL;
 
+SELECT e.postal_code, city, m.my_contacts
+FROM zip_code d
+FULL OUTER JOIN my_contacts ON e.postal_code = d.postal_code
+WHERE d.postal_code is NULL;
+
 -- No values returned as no NULL values
 ________________________________________________________________________________
 
@@ -545,13 +576,21 @@ ________________________________________________________________________________
 -- Command used to find the numeric average of status_ids.
  
  SELECT AVG(status_id) FROM status;
-
+-- Ave: 5
+	 
+--Query used to generate random number
+SELECT random() * 100 + 1 AS RAND_1_100;
+-- Result: 66.933...
 ___________________________________________________________________________________
  
 -- Question 17
 -- 17. Using the Advanced Subquery in PostgreSQL
+-- Returns the prof_ids of status_ids that are above the average of 3.555.....
 
+--Run subquery to determine average:
+SELECT AVG (prof_id) FROM my_contacts;	 
 
+-- Run query.  	 
 SELECT status_id, prof_id
 FROM my_contacts
 WHERE status_id > (
@@ -597,19 +636,19 @@ ________________________________________________________________________________
  
 -- Object-Oriented SQL for Data Complexity
 
--- 1. ROLLUP
+-- 1. ROLLUP (Question 20)
 -- An extension of the GROUP BY clause 
 -- The ROLLUP option allows you to include extra rows that represent the subtotals, which are commonly referred to as super-aggregate rows, 
 -- along with the grand total row.
- 
-SELECT contact_id, count(contact_id)
-FROM my_contacts
-GROUP BY ROLLUP(contact_id);
+
+SELECT first_name, last_name, count(*)
+FROM my_contacts 
+GROUP BY ROLLUP (first_name, last_name);
  
 -- Output: Seeks to find the total number of contacts on the database and their contact_id
 -----------------------------------------------------------------------------------
  
--- 2. CUBE
+-- 2. CUBE (Question 21)
 -- Enables the user to obtain sequences
 
 SELECT prof_id,profession, Count(*)
@@ -617,12 +656,12 @@ FROM profession
 GROUP BY CUBE(prof_id, profession);
 
 ------------------------------------------------------------------------------------ 
--- 3. Index
+-- 3. Index (Question 22)
 -- Enables the user to search for data and is returned quickly
  
 CREATE INDEX profession_idx ON profession (prof_id);
 ------------------------------------------------------------------------------------ 
---4. HAVING Clause
+--4. HAVING Clause (Question 23)
 -- The HAVING clause is often used with the GROUP BY clause in the SELECT statement
 -- To find all the contacts on the database with a contact_id that is above 61,
 -- you will include "Having" to this clause:
@@ -635,31 +674,64 @@ HAVING contact_id>=61
 ORDER BY contact_id;
 ______________________________________________________________________________________
  
--- 5. Triggers
--- We will make use of the my_contacts table in the database
--- In order to log changes in the prof_id column, we will need to create a separate table
--- for storing the changes and use a trigger to insert the changes into this table.
- 
-CREATE TABLE prof_changes (
-    contact_id bigserial,
-    changed_at DATE DEFAULT CURRENT_TIMESTAMP,
-    old_prof_id integer,
-    new_prof_id integer,
-    PRIMARY KEY (contact_id , changed_at)
-); 
- 
-SELECT * FROM prof_changes;
- 
-CREATE TRIGGER before_update_profession
-BEFORE UPDATE ON my_contacts
-FOR EACH ROW
-BEGIN
-   IF NEW.prof_id <> OLD.prof_id THEN
-	INSERT INTO my_contacts(contact_id,old_prof_id,new_prof_id)
-        VALUES(NEW.contact_id,OLD.prof_id,NEW.prof_id);
-    END IF;
-END;
+-- 5. Triggers (Question 24)
+-- We will make use of the zip_code table in the database as the base
+-- 
 
+-- Run zip_code table
+
+SELECT * FROM zip_code; -- displays 18 rows of data
+
+-- Create an additional table with the same columns	
+
+DROP TABLE zip_code_audit;
+
+CREATE TABLE zip_code_audit (
+    postal_code varchar(4), 
+	city varchar (50),
+	province varchar (50)
+); 
+	 
+INSERT INTO zip_code_audit (postal_code,city,province) 
+VALUES ('7405', 'Brooklyn', 'Western Cape'),
+	   ('3880', 'Donda', 'KwaZulu-Natal');
+
+-- Run zip_code_audit table
+
+SELECT * FROM zip_code_audit;
+
+
+-- Create a trigger function called zip_code_insert that returns a new insert/rows as a trigger
+CREATE OR REPLACE FUNCTION zip_code_insert ()
+RETURNS trigger AS
+$$
+BEGIN
+INSERT INTO zip_code_audit (postal_code,city,province)
+VALUES(NEW.postal_code,NEW.city,NEW.province);
+RETURN NEW;
+END;
+$$
+LANGUAGE 'plpgsql';
+
+
+-- Creates a new trigger
+CREATE TRIGGER insert_zip_code_audit -- name of trigger
+AFTER INSERT
+ON zip_code
+FOR EACH ROW
+EXECUTE PROCEDURE zip_code_insert ();
+
+-- Insert records into zip_code table, activating the trigger and inserts 
+-- the records into 
+	 
+INSERT INTO zip_code (postal_code,city,province) 
+VALUES ('9300', 'Grootvlei', 'Free State');
+
+-- Run query to check zip_code table
+
+SELECT * FROM zip_code;
+
+-- An additional line added
 __________________________________________________________________________________
  
 --6. Missing Values in a Sequence
@@ -704,6 +776,7 @@ FROM my_contacts;
  _________________________________________________________________________________
  
  -- 9. FIRST_VALUE()
+-- First_names returned in alphabetical order
 
 SELECT contact_id, first_name, last_name,
 FIRST_VALUE(contact_id) OVER (
@@ -722,6 +795,7 @@ ORDER BY first_name
 RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )interest_id
 FROM my_contacts;
+
  _____________________________________________________________________________
  
  -- 11 Explain Statement
@@ -735,7 +809,7 @@ EXPLAIN SELECT * FROM profession;
 -- 12. Create Role 
 -- Create profile and log on credentials of user
  
-CREATE ROLE Neo
+CREATE ROLE Neo --
 LOGIN
 PASSWORD 'myPass1';
 
@@ -746,5 +820,7 @@ PASSWORD 'myPass1';
 
  CREATE ROLE emp;
  GRANT emp TO Neo;
+ 
+ CREATE DATABASE sql_class_presentation;
  
  
